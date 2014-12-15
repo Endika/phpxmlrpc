@@ -1,3 +1,8 @@
+NB: All recent commits are available online.
+This file will not be updated further.
+See https://github.com/gggeek/phpxmlrpc/commits/master
+
+
 2014-02-3 - G. Giunta (giunta.gaetano@gmail.com)
 
 	* bumped up requirements to php 5.1.0
@@ -21,7 +26,7 @@
 
 	* xmlrpc.inc: method setAcceptedCompression was failing to disable reception
 	of compressed responses if the client supported them (triggering a bug with
-	https and php < 5.3 on windows due); remove a php warning that could be
+	https and php < 5.3 on windows); remove a php warning that could be
 	generated when using debug=2 in a client connecting to an https
 	server
 
@@ -1374,7 +1379,7 @@
 	* xmlrpc.inc: added setSSLVerifyPeer and setSSLVerifyHost; as
 	of curl 7.10, various certificate checks are done (by default).
 	The default for CURLOPT_SSL_VERIFYHOST is to ensure the common
-	name on the cert matches the provided hostname.  This breaks a
+	name on the cert matches the provided hostname. This breaks a
 	lot of stuff, so allow users to override it.
 	* doc/xmlrpc_php.sgml: updated documentation accordingly.
 

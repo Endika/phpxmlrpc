@@ -1,6 +1,6 @@
 <?php
 
-include(getcwd().'/parse_args.php');
+include(dirname(__FILE__).'/parse_args.php');
 
 require_once('xmlrpc.inc');
 require_once('xmlrpcs.inc');
@@ -228,8 +228,12 @@ And turned it into nylon';
         if (class_exists('DateTime'))
         {
             $datetime = new DateTime();
-            $t3 = new xmlrpcval($datetime->setTimestamp($time), 'dateTime.iso8601');
-            $this->assertEquals($t1->serialize(), $t3->serialize());
+            // skip this test for php 5.2. It is a bit harder there to build a DateTime from unix timestamp with proper TZ info
+            if(is_callable(array($datetime,'setTimestamp')))
+            {
+                $t3 = new xmlrpcval($datetime->setTimestamp($time), 'dateTime.iso8601');
+                $this->assertEquals($t1->serialize(), $t3->serialize());
+            }
         }
     }
 
@@ -530,7 +534,8 @@ And turned it into nylon';
 
     function testAutoRegisteredMethod()
     {
-        $func=wrap_xmlrpc_method($this->client, 'examples.getStateName');
+        // make a 'deep client copy' as the original one might have many properties set
+        $func=wrap_xmlrpc_method($this->client, 'examples.getStateName', array('simple_client_copy' => 1));
         if($func == '')
         {
             $this->fail('Registration of examples.getStateName failed');
@@ -538,6 +543,11 @@ And turned it into nylon';
         else
         {
             $v=$func(23);
+            // work around bug in current version of phpunit
+            if(is_object($v))
+            {
+                $v = var_export($v, true);
+            }
             $this->assertEquals('Michigan', $v);
         }
     }
@@ -561,6 +571,10 @@ And turned it into nylon';
             $this->assertEquals(1, $v->scalarval());
             // now check if we decoded the cookies as we had set them
             $rcookies = $r->cookies();
+            // remove extra cookies which might have been set by proxies
+            foreach($rcookies as $c => $v)
+                if(!in_array($c, array('c2', 'c3', 'c4', 'c5')))
+                    unset($rcookies[$c]);
             foreach($cookies as $c => $v)
                 // format for date string in cookies: 'Mon, 31 Oct 2005 13:50:56 GMT'
                 // but PHP versions differ on that, some use 'Mon, 31-Oct-2005 13:50:56 GMT'...
@@ -630,7 +644,9 @@ class LocalHostMultiTests extends LocalhostTests
             if(strpos($meth, 'test') === 0 && $meth != 'testHttps' && $meth != 'testCatchExceptions')
             {
                 if (!isset($failed_tests[$meth]))
+                {
                     $this->$meth();
+                }
             }
             if ($this->_failed)
             {
@@ -677,14 +693,15 @@ class LocalHostMultiTests extends LocalhostTests
 
     function testProxy()
     {
-        global $PROXYSERVER, $PROXYPORT;
+        global $PROXYSERVER, $PROXYPORT, $NOPROXY;
         if ($PROXYSERVER)
         {
             $this->client->setProxy($PROXYSERVER, $PROXYPORT);
             $this->_runtests();
         }
         else
-            $this->fail('PROXY definition missing: cannot test proxy');
+            if (!$NOPROXY)
+                $this->fail('PROXY definition missing: cannot test proxy');
     }
 
     function testHttp11()
@@ -734,7 +751,7 @@ class LocalHostMultiTests extends LocalhostTests
 
     function testHttp11Proxy()
     {
-        global $PROXYSERVER, $PROXYPORT;
+        global $PROXYSERVER, $PROXYPORT, $NOPROXY;
         if(!function_exists('curl_init'))
         {
             $this->fail('CURL missing: cannot test http 1.1 w. proxy');
@@ -742,7 +759,8 @@ class LocalHostMultiTests extends LocalhostTests
         }
         else if ($PROXYSERVER == '')
         {
-            $this->fail('PROXY definition missing: cannot test proxy w. http 1.1');
+            if (!$NOPROXY)
+                $this->fail('PROXY definition missing: cannot test proxy w. http 1.1');
             return;
         }
         $this->method = 'http11'; // not an error the double assignment!
@@ -767,12 +785,14 @@ class LocalHostMultiTests extends LocalhostTests
         $this->client->method = 'https';
         $this->client->path = $HTTPSURI;
         $this->client->setSSLVerifyPeer( !$HTTPSIGNOREPEER );
+        // silence warning with newish php versions
+        $this->client->setSSLVerifyHost(2);
         $this->_runtests();
     }
 
     function testHttpsProxy()
     {
-        global $HTTPSSERVER, $HTTPSURI, $PROXYSERVER, $PROXYPORT;;
+        global $HTTPSSERVER, $HTTPSURI, $PROXYSERVER, $PROXYPORT, $NOPROXY;
         if(!function_exists('curl_init'))
         {
             $this->fail('CURL missing: cannot test https functionality');
@@ -780,7 +800,8 @@ class LocalHostMultiTests extends LocalhostTests
         }
         else if ($PROXYSERVER == '')
         {
-            $this->fail('PROXY definition missing: cannot test proxy w. http 1.1');
+            if (!$NOPROXY)
+                $this->fail('PROXY definition missing: cannot test proxy w. http 1.1');
             return;
         }
         $this->client->server = $HTTPSSERVER;
@@ -1519,6 +1540,10 @@ Proxy Server: <input name="PROXY" size="30" value="<?php echo isset($PROXY) ? ht
 </form>
 </div>
 <?php
-echo $result->toHTML()."\n</body>\n</html>\n";
+    echo $result->toHTML()."\n</body>\n</html>\n";
+}
+else
+{
+    exit($result->failureCount());
 }
 ?>
